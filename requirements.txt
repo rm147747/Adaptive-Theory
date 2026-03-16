@@ -3,4 +3,5 @@ scipy>=1.11
 matplotlib>=3.7
 plotly>=5.18
 streamlit>=1.30
+anthropic>=0.40
 pytest>=7.4
