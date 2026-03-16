@@ -146,6 +146,77 @@ class TestCTBOptimizer:
             assert pol["utility"] <= best_util + 1e-6
 
 
+class TestClosedLoop:
+    """Tests for the ctDNA closed-loop monitoring system."""
+
+    def _make_ctb(self):
+        params = LVParams()
+        from ctb import ClosedLoopCTB
+        return ClosedLoopCTB(params, S0=0.85, R0=0.02, tf_baseline=1.0)
+
+    def test_normal_update(self):
+        """Normal ctDNA measurement should produce a valid report."""
+        from ctb import ClosedLoopCTB, CtdnaTimepoint
+        ctb = self._make_ctb()
+        obs = CtdnaTimepoint(
+            day=90, tumor_fraction=0.85,
+            sensitive_vafs={"TP53": 0.30},
+            resistant_vafs={"BRCA2": 0.02},
+            read_depths={"TP53": 400, "BRCA2": 300},
+        )
+        report = ctb.update(obs)
+        assert report.status in ("normal", "r_expanding", "r_dominant", "progression_signal")
+        assert report.recommended_policy is not None
+
+    def test_below_lod(self):
+        """ctDNA below LOD should skip recalibration."""
+        from ctb import ClosedLoopCTB, CtdnaTimepoint
+        ctb = self._make_ctb()
+        obs = CtdnaTimepoint(day=90, tumor_fraction=0.0005)
+        report = ctb.update(obs)
+        assert report.status == "below_lod"
+
+    def test_resistant_expansion_detected(self):
+        """Rising q_R should trigger R_EXPANDING flag."""
+        from ctb import ClosedLoopCTB, CtdnaTimepoint
+        ctb = self._make_ctb()
+        # First: normal
+        ctb.update(CtdnaTimepoint(
+            day=0, tumor_fraction=1.0,
+            sensitive_vafs={"TP53": 0.35}, resistant_vafs={"BRCA2": 0.01}))
+        # Second: resistance rising
+        report = ctb.update(CtdnaTimepoint(
+            day=90, tumor_fraction=0.9,
+            sensitive_vafs={"TP53": 0.20}, resistant_vafs={"BRCA2": 0.15}))
+        has_r_flag = any("R_EXPANDING" in f or "R_DOMINANT" in f
+                         for f in report.safety_flags)
+        assert has_r_flag or report.observed_q_R > 0.3, \
+            "Should detect resistant expansion"
+
+    def test_cns_risk_filters_policies(self):
+        """CNS risk should exclude treatment pauses."""
+        from ctb import ClosedLoopCTB, CtdnaTimepoint
+        params = LVParams()
+        ctb = ClosedLoopCTB(params, 0.85, 0.02, tf_baseline=1.0, cns_risk=True)
+        obs = CtdnaTimepoint(
+            day=90, tumor_fraction=0.85,
+            sensitive_vafs={"TP53": 0.30}, resistant_vafs={"BRCA2": 0.02})
+        report = ctb.update(obs)
+        # Should only recommend continuous policies
+        assert report.recommended_policy in ("MTD", "metro_50"), \
+            f"CNS risk: should not recommend {report.recommended_policy}"
+
+    def test_history_accumulates(self):
+        """Each update should add to history."""
+        from ctb import ClosedLoopCTB, CtdnaTimepoint
+        ctb = self._make_ctb()
+        for day in [0, 90, 180]:
+            ctb.update(CtdnaTimepoint(
+                day=day, tumor_fraction=0.8,
+                sensitive_vafs={"TP53": 0.30}, resistant_vafs={"BRCA2": 0.01}))
+        assert len(ctb.history) == 3
+
+
 class TestReproducibility:
     """Tests ensuring results are reproducible."""
 

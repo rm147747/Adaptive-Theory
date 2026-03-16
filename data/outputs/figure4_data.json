@@ -1,0 +1,123 @@
+{
+  "metadata": {
+    "description": "ctDNA closed-loop simulation for Figure 4",
+    "scenario": "Acquired resistance mutation at day 360",
+    "true_params_after_360": {
+      "r_R": 0.035,
+      "alpha_RS": 1.0
+    },
+    "model_params": {
+      "r_S": 0.0278,
+      "r_R": 0.02,
+      "K": 1.0,
+      "alpha_SR": 0.8,
+      "alpha_RS": 1.5,
+      "d_S": 0.018,
+      "d_R": 0.001
+    },
+    "random_seed": 42,
+    "noise_cv_tf": 0.05,
+    "noise_cv_vaf": 0.08,
+    "generated_by": "notebooks/04_figure4_ctdna_closed_loop.py"
+  },
+  "monitoring_log": [
+    {
+      "day": 0,
+      "tf": 1.0248,
+      "q_R": 0.0227,
+      "status": "normal",
+      "policy": "metro_50",
+      "flags": []
+    },
+    {
+      "day": 90,
+      "tf": 0.8942,
+      "q_R": 0.0254,
+      "status": "normal",
+      "policy": "metro_50",
+      "flags": []
+    },
+    {
+      "day": 180,
+      "tf": 0.7954,
+      "q_R": 0.022,
+      "status": "normal",
+      "policy": "int_21_14",
+      "flags": []
+    },
+    {
+      "day": 270,
+      "tf": 0.8209,
+      "q_R": 0.0235,
+      "status": "normal",
+      "policy": "metro_50",
+      "flags": []
+    },
+    {
+      "day": 360,
+      "tf": 0.7078,
+      "q_R": 0.023,
+      "status": "normal",
+      "policy": "AT30",
+      "flags": []
+    },
+    {
+      "day": 450,
+      "tf": 0.6952,
+      "q_R": 0.0565,
+      "status": "normal",
+      "policy": "MTD",
+      "flags": []
+    },
+    {
+      "day": 540,
+      "tf": 0.7283,
+      "q_R": 0.1205,
+      "status": "r_expanding",
+      "policy": "MTD",
+      "flags": [
+        "R_EXPANDING: q_R rose from 5.7% to 12.0%"
+      ]
+    },
+    {
+      "day": 630,
+      "tf": 0.7428,
+      "q_R": 0.282,
+      "status": "progression_signal",
+      "policy": "int_28_28",
+      "flags": [
+        "R_EXPANDING: q_R rose from 12.0% to 28.2%",
+        "PROGRESSION_SIGNAL: burden rising for 3+ timepoints"
+      ]
+    },
+    {
+      "day": 720,
+      "tf": 0.8138,
+      "q_R": 0.6823,
+      "status": "progression_signal",
+      "policy": "metro_50",
+      "flags": [
+        "R_DOMINANT: resistant fraction 68% > 50%",
+        "R_EXPANDING: q_R rose from 28.2% to 68.2%",
+        "PROGRESSION_SIGNAL: burden rising for 3+ timepoints"
+      ]
+    },
+    {
+      "day": 810,
+      "tf": 0.9787,
+      "q_R": 0.7819,
+      "status": "progression_signal",
+      "policy": "int_28_28",
+      "flags": [
+        "R_DOMINANT: resistant fraction 78% > 50%",
+        "PROGRESSION_SIGNAL: burden rising for 3+ timepoints"
+      ]
+    }
+  ],
+  "detection": {
+    "resistance_day": 360,
+    "first_flag_day": 540,
+    "first_r_expanding_day": 540,
+    "lead_time_days": 180
+  }
+}
