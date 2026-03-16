@@ -1,0 +1,96 @@
+{
+  "_metadata": {
+    "description": "Published parameter values used for CTB simulations",
+    "purpose": "Audit trail — every number has a source",
+    "created": "2026-03-16",
+    "author": "Raphael Brandão"
+  },
+
+  "zhang_2017_mCRPC": {
+    "source": "Zhang J, Cunningham JJ, Brown JS, Gatenby RA. Nat Commun. 2017;8:1816",
+    "doi": "10.1038/s41467-017-01968-5",
+    "table": "Methods section, Supplementary Table 1",
+    "parameters": {
+      "r_T_plus": {
+        "value": 0.0278,
+        "unit": "day^-1",
+        "derivation": "LNCaP cell line doubling time, scaled to 10% of in vitro"
+      },
+      "r_T_P": {
+        "value": 0.0355,
+        "unit": "day^-1",
+        "derivation": "H295R cell line doubling time, scaled to 10%"
+      },
+      "r_T_minus": {
+        "value": 0.0665,
+        "unit": "day^-1",
+        "derivation": "PC-3 cell line doubling time, scaled to 10%"
+      },
+      "competition_matrix": "See Eq. 1 in paper",
+      "note": "Three-population model (T+, TP, T-). Our 2-population model uses r_S ≈ r_T_plus, r_R from range of T_P to T_minus"
+    },
+    "clinical_outcomes": {
+      "adaptive_TTP_months": 33.5,
+      "standard_TTP_months": 14.3,
+      "TTP_ratio": 2.34,
+      "dose_reduction": "less than half"
+    }
+  },
+
+  "zhang_2022_elife": {
+    "source": "Zhang J et al. eLife. 2022;11:e76284",
+    "doi": "10.7554/eLife.76284",
+    "note": "Updated outcomes. Deviations from model-predicted timing correlated with worse outcomes."
+  },
+
+  "strobl_2024_cancer_res": {
+    "source": "Strobl MAR et al. Cancer Res. 2024;84(11):1929",
+    "doi": "10.1158/0008-5472.CAN-23-2040",
+    "parameters": {
+      "model": "Two-population Lotka-Volterra",
+      "fitting": "Fitted to 7 patients from Bruchovsky et al. intermittent androgen suppression trial",
+      "alpha_RS_range": "0.5 to 1.5 (estimated from patient fits)",
+      "note": "DRL framework trained on virtual patients generated from these parameters"
+    }
+  },
+
+  "enriquez_navas_2016": {
+    "source": "Enriquez-Navas PM et al. Sci Transl Med. 2016;8(327):327ra24",
+    "doi": "10.1126/scitranslmed.aad7842",
+    "note": "Preclinical breast cancer adaptive therapy. Parameters adapted for HER2+ demonstration case."
+  },
+
+  "ctb_simulation_parameters": {
+    "description": "Parameters used in this study, derived from above sources",
+    "default_mCRPC": {
+      "r_S": 0.0278,
+      "r_R": 0.02,
+      "K": 1.0,
+      "alpha_SR": 0.8,
+      "alpha_RS": 1.5,
+      "d_S": 0.018,
+      "d_R": 0.001,
+      "S0": 0.85,
+      "R0": 0.02,
+      "justification": {
+        "r_S": "Zhang 2017 LNCaP-derived, 10% scaling",
+        "r_R": "Lower than r_S to reflect cost of resistance (standard assumption in AT literature)",
+        "alpha_RS": "1.5: strong competitive suppression (required for AT benefit per Strobl 2024)",
+        "alpha_SR": "0.8: moderate reverse competition",
+        "d_S": "Calibrated to produce ~50% tumor decline at ~120 days (consistent with abiraterone response)",
+        "d_R": "Near-zero: resistant cells minimally affected by abiraterone",
+        "S0_R0": "2.3% initial resistant fraction (within 1-10% range used in AT literature)"
+      }
+    },
+    "virtual_cohort_sampling": {
+      "n_patients": 500,
+      "R0_N0": "Uniform(0.01, 0.35)",
+      "alpha_RS": "Uniform(0.5, 1.5)",
+      "r_S": "Uniform(0.02, 0.035)",
+      "r_R": "Uniform(0.015, 0.04)",
+      "dR_dS_ratio": "Uniform(0.0, 0.7)",
+      "random_seed": 42,
+      "justification": "Ranges span biologically plausible space per Strobl 2024 and AT literature review"
+    }
+  }
+}
