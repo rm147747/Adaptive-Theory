@@ -1,16 +1,19 @@
 """
-CTB policy optimizer via discretized Stackelberg search.
+CTB policy optimizer via discrete policy search.
 
 The CTB evaluates all candidate treatment policies for a given patient's
 ecological state and selects the one maximizing a composite utility function.
 
-Game-theoretic interpretation:
-    - Physician (leader) selects treatment policy from candidate set
-    - Tumor (follower) responds via evolutionary dynamics (Lotka-Volterra)
-    - Physician evaluates tumor's best response to each policy
+Game-theoretic interpretation (Stackelberg analogy):
+    - Physician (leader) selects treatment policy from a finite candidate set
+    - Tumor (follower) responds via evolutionary dynamics (Lotka-Volterra ODE)
+    - Physician evaluates tumor's simulated response to each policy
     - Policy maximizing physician utility is selected
 
-This is a discretized approximation to the full Stackelberg equilibrium.
+IMPORTANT: This is a discrete search over heuristic candidate policies,
+not a continuous Stackelberg solver or full control-theoretic optimizer.
+The Stackelberg framing provides the conceptual justification for the
+leader-follower structure, but the implementation is a finite enumeration.
 
 Utility function:
     U = w_TTP × (TTP / T_max) - w_dose × (cumulative_dose / T_max) - w_resist × R_final_fraction

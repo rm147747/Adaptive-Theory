@@ -228,5 +228,129 @@ class TestReproducibility:
         assert np.allclose(sim1["N"], sim2["N"]), "Simulations should be deterministic"
 
 
+class TestInvariants:
+    """Mass/bounds invariants that must hold for all simulations."""
+
+    def test_populations_bounded_by_capacity(self):
+        """N(t) should not exceed K for reasonable initial conditions."""
+        params = LVParams()
+        sim = simulate_euler(params, 0.85, 0.02, mtd_policy, t_end=1500)
+        assert np.all(sim["N"] <= params.K * 1.5), \
+            f"N exceeded 1.5*K: max={np.max(sim['N']):.3f}"
+
+    def test_populations_non_negative_all_policies(self):
+        """S(t) and R(t) must be non-negative for all policies."""
+        params = LVParams()
+        from ctb.policies import POLICY_SPACE
+        for name, fn in POLICY_SPACE.items():
+            sim = simulate_euler(params, 0.85, 0.02, fn, t_end=1000)
+            assert np.all(sim["S"] >= 0), f"{name}: S went negative"
+            assert np.all(sim["R"] >= 0), f"{name}: R went negative"
+
+    def test_dose_bounded_zero_one(self):
+        """Treatment intensity u(t) should be in [0, 1]."""
+        params = LVParams()
+        from ctb.policies import POLICY_SPACE
+        for name, fn in POLICY_SPACE.items():
+            sim = simulate_euler(params, 0.85, 0.02, fn, t_end=500)
+            assert np.all(np.array(sim["dose"]) >= 0), f"{name}: negative dose"
+            assert np.all(np.array(sim["dose"]) <= 1.0), f"{name}: dose > 1"
+
+    def test_total_population_conservation(self):
+        """Without treatment, N should approach K (carrying capacity)."""
+        params = LVParams()
+        no_treat = lambda t, N, N0, state, i: 0.0
+        sim = simulate_euler(params, 0.40, 0.10, no_treat, t_end=3000)
+        final_N = sim["N"][-1]
+        assert abs(final_N - params.K) < 0.05, \
+            f"Without treatment, N should → K. Got {final_N:.3f}"
+
+
+class TestMonotonicity:
+    """Tests that verify expected monotonic relationships."""
+
+    def test_higher_r0_shorter_ttp(self):
+        """Higher initial resistance fraction should lead to shorter TTP under MTD."""
+        params = LVParams()
+        sim_low = simulate_euler(params, 0.83, 0.04, mtd_policy, t_end=1500)
+        sim_high = simulate_euler(params, 0.52, 0.35, mtd_policy, t_end=1500)
+        assert sim_high["TTP"] <= sim_low["TTP"], \
+            "Higher R0 should not increase TTP under MTD"
+
+    def test_higher_drug_sensitivity_faster_sensitive_kill(self):
+        """Higher d_S kills sensitive cells faster, which can accelerate
+        competitive release of resistant cells (shorter TTP under MTD).
+        This is a known property of the Lotka-Volterra model."""
+        p1 = LVParams(d_S=0.010)
+        p2 = LVParams(d_S=0.025)
+        sim1 = simulate_euler(p1, 0.85, 0.02, mtd_policy, t_end=1500)
+        sim2 = simulate_euler(p2, 0.85, 0.02, mtd_policy, t_end=1500)
+        # Higher d_S → faster sensitive kill → faster competitive release
+        assert sim2["R_fraction_final"] >= sim1["R_fraction_final"], \
+            "Higher d_S should lead to higher final resistance fraction"
+
+    def test_mtd_uses_more_drug_than_adaptive(self):
+        """MTD cumulative dose should exceed AT50."""
+        params = LVParams()
+        sim_mtd = simulate_euler(params, 0.85, 0.02, mtd_policy, t_end=1000)
+        sim_at50 = simulate_euler(params, 0.85, 0.02,
+                                   adaptive_policy(0.50, 1.0), t_end=1000)
+        assert sim_mtd["cumulative_dose"] >= sim_at50["cumulative_dose"], \
+            "MTD should use at least as much drug as AT50"
+
+
+class TestEulerVsIVP:
+    """Verify Euler solver agrees with scipy.integrate.solve_ivp."""
+
+    def test_euler_vs_ivp_mtd(self):
+        """Euler and IVP should agree within 5% for MTD (constant dose)."""
+        params = LVParams()
+        sim_euler = simulate_euler(params, 0.85, 0.02, mtd_policy, t_end=500)
+        sim_ivp = simulate_ivp(params, 0.85, 0.02, dose_intensity=1.0, t_end=500)
+
+        # Compare at 100-day intervals
+        for day in [100, 200, 300, 400, 500]:
+            idx_e = min(day, len(sim_euler["N"]) - 1)
+            idx_i = np.argmin(np.abs(sim_ivp["t"] - day))
+            n_euler = sim_euler["N"][idx_e]
+            n_ivp = sim_ivp["N"][idx_i]
+            rel_err = abs(n_euler - n_ivp) / max(n_ivp, 1e-6)
+            assert rel_err < 0.05, \
+                f"Day {day}: Euler={n_euler:.4f} vs IVP={n_ivp:.4f}, err={rel_err:.1%}"
+
+
+class TestRegressionSnapshots:
+    """Regression tests pinning known-good outputs for benchmark parameters."""
+
+    def test_zhang_mcrpc_mtd_ttp(self):
+        """MTD TTP for Zhang mCRPC parameters should be ~755 days."""
+        params = LVParams()  # defaults = Zhang params
+        sim = simulate_euler(params, 0.85, 0.02, mtd_policy, t_end=2000)
+        assert 700 < sim["TTP"] < 850, \
+            f"Zhang MTD TTP should be ~755d, got {sim['TTP']:.0f}d"
+
+    def test_zhang_at50_ttp(self):
+        """AT50 TTP for Zhang parameters should be >1000 days (adaptive cycling)."""
+        params = LVParams()
+        sim = simulate_euler(params, 0.85, 0.02,
+                              adaptive_policy(0.50, 1.0), t_end=2000)
+        assert sim["TTP"] > 1000, \
+            f"Zhang AT50 TTP should be >1000d (cycling), got {sim['TTP']:.0f}d"
+
+    def test_ctb_selects_metro_for_default_params(self):
+        """CTB should select metronomic for default Zhang parameters."""
+        params = LVParams()
+        result = ctb_select_policy(params, 0.85, 0.02, t_end=1500)
+        assert result["recommended"]["policy"] == "metro_50", \
+            f"Expected metro_50, got {result['recommended']['policy']}"
+
+    def test_matching_score_no_match(self):
+        """Mutations with no matching drugs should give MS=0."""
+        muts = [Mutation("TP53", "R248W", 0.4, 2, [], None)]
+        ms = compute_matching_scores(muts, ["docetaxel"], 0.65)
+        assert ms["MS_classic"] == 0.0
+        assert ms["MS_weighted"] == 0.0
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

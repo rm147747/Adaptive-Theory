@@ -229,8 +229,14 @@ def compute_ttp(t: np.ndarray, N: np.ndarray, N0: float) -> float:
     """
     Compute time to progression (TTP).
 
-    Definition: first time after nadir at which tumor burden N(t) returns
-    to the initial value N0. If no progression occurs, returns t[-1].
+    Definition: first time at which tumor burden N(t) exceeds N0 AND
+    the subsequent trajectory shows sustained growth (i.e., not just
+    an adaptive therapy cycle returning to baseline for re-treatment).
+
+    For MTD/continuous therapy: first return to N0 after nadir.
+    For adaptive therapy: first return to N0 after which N stays above N0
+    for a sustained period (>28 days), indicating resistance-driven
+    progression rather than intentional cycling.
 
     Args:
         t: time array
@@ -240,6 +246,8 @@ def compute_ttp(t: np.ndarray, N: np.ndarray, N0: float) -> float:
     Returns:
         TTP in days
     """
+    SUSTAINED_WINDOW = 28  # days N must stay above N0 to count as progression
+
     # Find nadir in first half of simulation
     search_window = min(len(N), int(len(N) * 0.6))
     nadir_idx = np.argmin(N[:search_window])
@@ -247,11 +255,23 @@ def compute_ttp(t: np.ndarray, N: np.ndarray, N0: float) -> float:
     if nadir_idx < 5:
         return 0.0
 
-    # Find first time after nadir where N >= N0
+    # Search for sustained progression after nadir
     post_nadir = N[nadir_idx:]
-    progression_indices = np.where(post_nadir >= N0)[0]
+    i = 0
+    while i < len(post_nadir):
+        if post_nadir[i] >= N0:
+            # Check if N stays above N0 for SUSTAINED_WINDOW days
+            end = min(i + SUSTAINED_WINDOW, len(post_nadir))
+            if end - i < SUSTAINED_WINDOW:
+                # Not enough data to confirm sustained progression
+                return float(t[-1])
+            if np.all(post_nadir[i:end] >= N0 * 0.98):  # 2% tolerance
+                return float(t[nadir_idx + i])
+            else:
+                # This was a cycling event, skip past this crossing
+                # Jump to next time N drops below N0
+                while i < len(post_nadir) and post_nadir[i] >= N0 * 0.95:
+                    i += 1
+        i += 1
 
-    if len(progression_indices) == 0:
-        return float(t[-1])  # no progression
-
-    return float(t[nadir_idx + progression_indices[0]])
+    return float(t[-1])  # no sustained progression
