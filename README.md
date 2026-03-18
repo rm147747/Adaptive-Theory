@@ -18,7 +18,7 @@ The Computational Tumor Board (CTB) is a four-layer decision-support framework t
 
 This repository contains the companion software for the paper:
 
-> Brandão R, Scott J. *The Oncologist as the Third Player: Evolutionary Game Theory, Precision Molecular Matching, and the Case for Computational Tumor Boards.* (In preparation)
+>  *The Oncologist as the Third Player: Evolutionary Game Theory, Precision Molecular Matching, and the Case for Computational Tumor Boards.* (In preparation)
 
 ## ⚠️ Disclaimer
 
